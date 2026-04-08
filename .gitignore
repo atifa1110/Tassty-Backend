@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+
+# env (rahasia)
+.env
+.env.*
+!.env.example
+
+# secrets / credentials
+src/secrets/
+*.json
+
+# file yang dibutuhkan Vercel & Node.js
+!vercel.json
+!package.json
+!package-lock.json
+
+# macOS
+.DS_Store
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# build / output
+dist/
+build/
+
+# cache
+.cache/
+.tmp/
+
+# coverage
+coverage/
+
+# editor
+.vscode/
+.idea/
+
+# optional
+*.pem
