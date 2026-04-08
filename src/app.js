@@ -1,6 +1,7 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import cors from 'cors'
+import serverless from 'serverless-http';
 import { OrderModel } from './models/orderModel.js'
 import authRoutes from './routes/authRoutes.js'
 import restaurantRoutes from './routes/restaurantRoutes.js'
@@ -24,19 +25,19 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
-app.use('/api', globalLimiter);
+app.use(globalLimiter);
 
-app.use('/api/auth', authLimiter, authRoutes)
-app.use('/api/restaurants', restaurantRoutes)
-app.use('/api/vouchers', voucherRoutes)
-app.use('/api/menus', menuRoutes)
-app.use('/api/search', searchRoutes)
-app.use('/api/detail', detailRoutes)
-app.use('/api/filters', filterRoutes)
-app.use('/api/orders', orderRoutes)
-app.use('/api/reviews', reviewRoutes)
-app.use('/api/chats', chatRoutes)
-app.use('/api/users', userRoutes)
+app.use('/auth', authLimiter, authRoutes)
+app.use('/restaurants', restaurantRoutes)
+app.use('/vouchers', voucherRoutes)
+app.use('/menus', menuRoutes)
+app.use('/search', searchRoutes)
+app.use('/detail', detailRoutes)
+app.use('/filters', filterRoutes)
+app.use('/orders', orderRoutes)
+app.use('/reviews', reviewRoutes)
+app.use('/chats', chatRoutes)
+app.use('/users', userRoutes)
 
 app.get("/test-stream", async (req, res) => {
   try {
@@ -113,5 +114,8 @@ app.post("/webhook/stream",express.raw({ type: "*/*" }),(req, res) => {
 );
 
 //app.listen(3000, () => console.log('Server running on http://localhost:3000'))
+app.get('/', (req, res) => {
+  res.send('API is running 🚀')
+})
 
-export default app;
+export default serverless(app);
