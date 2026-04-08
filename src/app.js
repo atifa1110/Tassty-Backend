@@ -118,4 +118,4 @@ app.get('/', (req, res) => {
   res.send('API is running 🚀')
 })
 
-export default serverless(app);
+export default app;
