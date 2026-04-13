@@ -33,7 +33,8 @@ export const OrderModel = {
       .from('orders')
       .update(updates)
       .eq('id', orderId)
-      .select();
+      .select()
+      .maybeSingle();
 
     if (error) {
       console.error('Supabase Update Status Error:', error);
@@ -58,11 +59,11 @@ export const OrderModel = {
     return data;
   },
 
-  async updateOrderItem(orderId, updates) {
+  async updateOrderItem(orderItemId, updates) {
     const { data, error } = await supabaseAdmin
-      .from('orders')
+      .from('order_items')
       .update(updates)
-      .eq('id', orderId)
+      .eq('id', orderItemId)
       .select();
 
     if (error) {

@@ -16,6 +16,37 @@ export const createSetupIntent = async (customerId) => {
 };
 
 /**
+ * Fungsi: Memproses Pembayaran Otomatis
+ * Menggabungkan alur InvoiceItem, Create Invoice, dan Pay dalam satu panggil
+ */
+export const processPayment = async (stripeCustomerId, paymentMethodId, amount) => {
+    // 1. Pastikan Payment Method ini jadi default untuk invoice
+    await stripe.customers.update(stripeCustomerId, {
+        invoice_settings: {
+            default_payment_method: paymentMethodId,
+        },
+    });
+
+    // 2. Buat item tagihan (Line Item)
+    await stripe.invoiceItems.create({
+        customer: stripeCustomerId,
+        amount: Math.round(amount * 100), 
+        currency: 'idr',
+        description: `Payment for Tassty Order`,
+    });
+
+    // 3. Buat Invoicenya
+    const invoice = await stripe.invoices.create({
+        customer: stripeCustomerId,
+        collection_method: 'charge_automatically',
+        auto_advance: true,
+    });
+
+    // 4. Eksekusi Pembayaran
+    return await stripe.invoices.pay(invoice.id);
+};
+
+/**
  * Fungsi 2: Mengambil detail kartu
  * Dipanggil saat kartu sudah diverifikasi Stripe dan mau disimpan ke DB
  */

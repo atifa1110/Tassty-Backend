@@ -220,8 +220,8 @@ export const AuthController = {
         fullAddress,
         landmarkDetail = null,
         addressName,
-        latitude,
-        longitude,
+        lat,
+        lng,
         categoryIds
       } = req.body;
 
@@ -232,8 +232,8 @@ export const AuthController = {
         address_name: addressName,
         full_address: fullAddress,
         landmark_detail: landmarkDetail,
-        latitude: latitude,
-        longitude: longitude,
+        latitude: lat,
+        longitude: lng,
         is_primary: true
       }
 
@@ -297,7 +297,7 @@ export const AuthController = {
       if (error) return ResponseHandler.error(res, 400, error.message);
 
       // Berikan response sukses agar App pindah ke layar OTP
-      return ResponseHandler.success(res, 200, 'Reset code has been sent to your email.',{
+      return ResponseHandler.success(res, 200, 'Reset code has been sent to your email.', {
         expires_in: 300,
         resend_available_in: 60
       });
@@ -351,14 +351,17 @@ export const AuthController = {
 
   logout: async (req, res) => {
     try {
-      const { error } = await supabaseAuth.auth.signOut();
+      const token = req.token;
+      const { error } = await supabaseAdmin.auth.admin.signOut(token, 'global');
+      
       if (error) {
-        return ResponseHandler.error(res, 400, 'Logout gagal: ' + error.message);
+        console.error("Supabase Admin SignOut Error:", error.message);
+        return ResponseHandler.error(res, 400, "Error erase this server sessions.")
       }
-      return ResponseHandler.success(res, 200, 'Logout berhasil.');
+      return ResponseHandler.success(res, 200, "Logout is Success!");
     } catch (err) {
-      console.error(err);
-      return ResponseHandler.error(res, 500, 'Internal Server Error');
+      console.error("Logout Controller Error:", err);
+      return ResponseHandler.error(res, 500, "Internal Server Error");
     }
-  },
+  }
 }

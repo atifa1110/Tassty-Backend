@@ -4,9 +4,11 @@ import { RestaurantModel } from '../models/restaurantModel.js';
 import ResponseHandler from '../utils/responseHandler.js'
 import { sendOrderStatusNotification } from '../utils/NotificationService.js';
 import { createInvoice, getPaymentChannels } from '../utils/xendit.js';
-import { formatNotesAndOptions } from '../utils/openTimeHandler.js';
-import stripe from '../config/stripeService.js';
 import { ChatModel } from '../models/chatModel.js';
+import { startDriverSimulation } from '../config/supabaseClient.js';
+import { processPayment } from '../config/stripeService.js';
+import { getPolylineData } from '../utils/mapsHelper.js';
+import polyline from '@mapbox/polyline';
 
 // Fungsi Helper untuk membuat 10 digit angka acak
 const generateOrderNumber = () => {
@@ -33,15 +35,6 @@ export const OrderController = {
                 total_order,
                 items
             } = req.body;
-
-            if (!user_id || !restaurant_id || !address_id || total_price === undefined || total_order === undefined || delivery_fee === undefined) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for order creation.');
-            }
-
-            // Validasi: Pastikan ada item
-            if (!items || !Array.isArray(items) || items.length === 0) {
-                return ResponseHandler.error(res, 400, 'Order must contain items.');
-            }
 
             const orderPayload = {
                 order_number: generateOrderNumber(),
@@ -90,7 +83,7 @@ export const OrderController = {
             return ResponseHandler.success(res, 200, 'Payment channel fetch successfully', invoiceData);
 
         } catch (error) {
-            console.error('❌ Error in fetchInvoice controller:', error);
+            console.error('Error in fetch Invoice controller:', error);
             return ResponseHandler.error(res, error.response?.status || 500, error.response?.data?.message || error.message);
         }
     },
@@ -105,7 +98,6 @@ export const OrderController = {
                 return ResponseHandler.error(res, 400, 'Missing required fields for payment order');
             }
 
-            // 1. Ambil order
             const order = await OrderModel.getOrderById(orderId);
             if (!order) {
                 return ResponseHandler.error(res, 404, `Order ${orderId} not found`);
@@ -124,14 +116,14 @@ export const OrderController = {
                 payment_methods: [payment_method], // optional di sandbox
             };
 
-            // 1️⃣ Buat invoice
+            // Buat invoice
             const invoiceRes = await createInvoice(invoiceData);
             if (!invoiceRes || !invoiceRes.id) {
                 return ResponseHandler.error(res, 500, "Failed to create invoice");
             }
 
             // 3. Simpan invoice_id & payment_status = PENDING
-            await OrderModel.updateOrderStatus(orderId, {
+            await OrderModel.updateOrderById(orderId, {
                 invoice_id: invoiceRes.id,
                 invoice_url: invoiceRes.invoice_url,
                 payment_method: payment_method
@@ -184,7 +176,7 @@ export const OrderController = {
             const invoiceRes = await createInvoice(invoiceData);
 
             // 4. Update order dengan invoice baru
-            await OrderModel.updateOrderStatus(orderId, {
+            await OrderModel.updateOrderById(orderId, {
                 invoice_id: invoiceRes.id,
                 invoice_url: invoiceRes.invoice_url,
                 payment_method: payment_method,
@@ -207,8 +199,10 @@ export const OrderController = {
     acceptOrder: async (req, res) => {
         try {
             const orderId = req.params.orderId;
-            const updates = { status: 'PREPARING' };
-            const updatedOrder = await OrderModel.updateOrderStatus(orderId, updates);
+            const updates = {
+                status: 'PREPARING'
+            };
+            const updatedOrder = await OrderModel.updateOrderById(orderId, updates);
 
             if (!updatedOrder) {
                 return ResponseHandler.error(res, 404, `Order with ID ${orderId} not found.`);
@@ -231,11 +225,19 @@ export const OrderController = {
     pickupOrder: async (req, res) => {
         try {
             const orderId = req.params.orderId;
-            const updates = { status: 'ON_DELIVERY' };
-            const updatedOrder = await OrderModel.updateOrderStatus(orderId, updates);
+            const order = await OrderModel.getOrderById(orderId);
+            const updates = {
+                status: 'ON_DELIVERY',
+                driver_start_time: new Date().toISOString()
+            };
+            const updatedOrder = await OrderModel.updateOrderById(orderId, updates);
 
-            if (!updatedOrder) {
-                return ResponseHandler.error(res, 404, `Order with ID ${orderId} not found.`);
+            if (updatedOrder) {
+                const points = polyline.decode(order.polyline_data);
+                const totalSteps = points.length;
+                await startDriverSimulation(orderId, totalSteps);
+            }else{
+                return ResponseHandler.error(res, 404, `Order dengan ID ${orderId} tidak ditemukan di database.`);
             }
 
             try {
@@ -245,11 +247,10 @@ export const OrderController = {
                 console.error('Chat Notification Error:', chatError.message);
             }
 
-            // 🌟 Client sekarang tahu Driver sedang dalam perjalanan
             return ResponseHandler.success(res, 200, 'Order picked up by driver and is now on delivery.', updatedOrder);
 
         } catch (error) {
-            console.error('Error processing pickup:', error);
+            console.error('Error delivering order:', error);
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + error.message);
         }
     },
@@ -257,10 +258,11 @@ export const OrderController = {
     completeOrder: async (req, res) => {
         try {
             const orderId = req.params.orderId;
-            // 🚨 Optional: Cek payment_method dari database untuk menentukan payment_status
-
-            const updates = { status: 'COMPLETED' };
-            const updatedOrder = await OrderModel.updateOrderStatus(orderId, updates);
+            const updates = {
+                status: 'COMPLETED',
+                driver_start_time: null
+            };
+            const updatedOrder = await OrderModel.updateOrderById(orderId, updates);
 
             if (!updatedOrder) {
                 return ResponseHandler.error(res, 404, `Order with ID ${orderId} not found.`);
@@ -283,10 +285,8 @@ export const OrderController = {
     cancelOrder: async (req, res) => {
         try {
             const orderId = req.params.orderId;
-            // 🚨 Optional: Cek payment_method dari database untuk menentukan payment_status
-
             const updates = { status: 'CANCELLED' };
-            const updatedOrder = await OrderModel.updateOrderStatus(orderId, updates);
+            const updatedOrder = await OrderModel.updateOrderById(orderId, updates);
 
             if (!updatedOrder) {
                 return ResponseHandler.error(res, 404, `Order with ID ${orderId} not found.`);
@@ -302,7 +302,7 @@ export const OrderController = {
 
             return ResponseHandler.success(res, 200, 'Order successfully completed.', updatedOrder);
         } catch (error) {
-            console.error('Error completing order:', error);
+            console.error('Error cancel order:', error);
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + error.message);
         }
     },
@@ -339,7 +339,7 @@ export const OrderController = {
                     };
                 });
             }
-        
+
             return ResponseHandler.success(res, 200, 'Order details fetched successfully', processedOrder);
 
         } catch (error) {
@@ -351,7 +351,6 @@ export const OrderController = {
     getOrderList: async (req, res) => {
         try {
             const userId = req.userId;
-
             const orders = await OrderModel.getListOrder(userId);
 
             if (!orders) {
@@ -372,7 +371,7 @@ export const OrderController = {
             const userId = req.userId;
             const orderId = req.params.orderId;
 
-            const orders = await OrderModel.getOrderSummary(userId,orderId);
+            const orders = await OrderModel.getOrderSummary(userId, orderId);
 
             if (!orders) {
                 return ResponseHandler.error(res, 404, "You don't have any order yet.");
@@ -407,65 +406,48 @@ export const OrderController = {
         try {
             const userId = req.userId;
             const orderId = req.params.orderId;
-            const { payment_method } = req.body;
-
-            if (!payment_method) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for payment order');
-            }
-
+            const { stripe_pm_id } = req.body;
+            
             const order = await OrderModel.getOrderById(orderId);
             const user = await UserModel.getUserProfile(userId);
-            const card = await UserModel.getUserCardByStripeId(payment_method);
+            const card = await UserModel.getUserCardByStripeId(stripe_pm_id);
+            const restaurant = await RestaurantModel.getRestaurantById(order.restaurant_id);
+            const address = await UserModel.getAddressById(order.user_id, order.delivery_address_id);
+
             if (!card || card.length === 0) {
                 return ResponseHandler.error(res, 400, 'Missing card id');
             }
 
-            console.log("DEBUG CARD OBJECT:", card.id);
-            console.log("DEBUG ORDER ID:", orderId);
+            //console.log("DEBUG CARD OBJECT:", card.id);
+            //console.log("DEBUG ORDER ID:", orderId);
 
             if (!order) {
                 return ResponseHandler.error(res, 404, `Order ${orderId} not found`);
             }
 
-            // 2. Ambil Customer ID dari database kamu (yang sudah pernah dibuat saat add card)
-            // Misal di tabel user kamu simpan field 'stripe_customer_id'
-            let stripeCustomerId = user.stripe_customer_id;
+            const routeData = await getPolylineData(
+                { lat: restaurant.latitude, lng: restaurant.longitude },
+                { lat: address.latitude, lng: address.longitude }
+            );
 
-            // 3. Pastikan Payment Method ini adalah DEFAULT untuk invoice customer ini
-            // Ini penting supaya saat invoice dibuat, Stripe tahu kartu mana yang ditarik
-            await stripe.customers.update(stripeCustomerId, {
-                invoice_settings: {
-                    default_payment_method: payment_method,
-                },
-            });
+            const paidInvoice = await processPayment(
+                user.stripe_customer_id,
+                stripe_pm_id,
+                order.final_amount
+            );
 
-            await stripe.invoiceItems.create({
-                customer: stripeCustomerId,
-                amount: Math.round(order.final_amount * 100),
-                currency: 'idr',
-                description: `Payment for Order #${orderId}`,
-            });
-
-            // 5. Buat Invoice-nya
-            const invoice = await stripe.invoices.create({
-                customer: stripeCustomerId,
-                collection_method: 'charge_automatically', // Otomatis tarik dari default_payment_method
-                auto_advance: true, // Stripe otomatis mencoba memproses pembayaran
-            });
-
-            // 6. Finalisasi & Bayar (Pay)
-            // Langkah ini akan mengeksekusi penarikan saldo dari kartu user
-            const paidInvoice = await stripe.invoices.pay(invoice.id);
             const randomDriver = await UserModel.getRandomDrivers();
             const assignedDriverId = randomDriver ? randomDriver.id : null;
 
-            // 7. Update status order di Database kamu
             await OrderModel.updateOrderById(orderId, {
                 invoice_id: paidInvoice.id,
                 invoice_url: paidInvoice.hosted_invoice_url,
                 payment_method_id: card.id,
                 payment_status: 'PAID',
                 status: 'PLACED',
+                polyline_data: routeData.points,
+                distance: routeData.distance,
+                duration: routeData.duration,
                 driver_id: assignedDriverId
             });
 
@@ -483,6 +465,25 @@ export const OrderController = {
 
             return ResponseHandler.error(res, 500, 'Internal Server Error', err.message);
         }
+    },
+
+    getOrderRoute: async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const order = await OrderModel.getOrderById(orderId);
+
+            if (!order) {
+                return ResponseHandler.error(res, 404, 'Order tidak ditemukan');
+            }
+            return ResponseHandler.success(res, 200, 'Berhasil mendapatkan rute', {
+                distance: order.distance,           
+                duration: order.duration,            
+                polylinePoints: order.polyline_data, 
+                status: order.status
+            });
+        } catch (error) {
+            console.error("Route Error:", error);
+            return ResponseHandler.error(res, 500, 'Internal Server Error');
+        }
     }
 };
-

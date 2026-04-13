@@ -2,31 +2,17 @@ import { MenuModel } from '../models/menuModel.js';
 import ResponseHandler from '../utils/responseHandler.js'
 import { getStockInfo, getOpenStatusAndClosingTime } from '../utils/openTimeHandler.js';
 import { UserModel } from '../models/userModel.js';
+import { DetailModel } from '../models/detailModel.js';
 
 export const MenuController = {
-    add: async (req, res) => {
+    createMenus: async (req, res) => {
         try {
             const { menus = [] } = req.body;
 
-            // Validasi: minimal 1 menu
-            if (menus.length === 0) {
-                return ResponseHandler.error(res, 400, 'menus tidak boleh kosong');
-            }
-
-            // Validasi setiap menu
-            for (const menu of menus) {
-                const { restaurant_id, name, price_original } = menu;
-                if (!restaurant_id || !name || price_original == null) {
-                    return ResponseHandler.error(
-                        res,
-                        400,
-                        'Setiap menu wajib memiliki restaurant_id, name, dan price_original'
-                    );
-                }
-            }
-
             // Simpan semua menu ke database
-            await MenuModel.createMenus(menus);
+            if (menus.length > 0) {
+                await MenuModel.createMenus(menus);
+            }
 
             return ResponseHandler.success(res, 200, 'Create Menus Success');
         } catch (err) {
@@ -34,48 +20,72 @@ export const MenuController = {
         }
     },
 
-    addCustomizations: async (req, res) => {
+    getMenuDetail: async (req, res) => {
         try {
-            const { customization_groups = [] } = req.body;
+            const { menuId } = req.params
+            const { lat, lng } = req.query;
 
-            if (customization_groups.length === 0) {
-                return ResponseHandler.error(res, 400, 'customization_groups tidak boleh kosong');
+            const menu = await DetailModel.getMenuDetailById(menuId)
+            const { restaurant_id, ...menuWithoutRestId } = menu
+            // misal menu punya restaurant_id
+            const rest = await DetailModel.getRestaurantById(lat, lng, menu.restaurant_id);
+            const status = getOpenStatusAndClosingTime(rest[0].operational_hours);
+            const result = {
+                ...menuWithoutRestId,
+                restaurant: {
+                    id: rest[0].id,
+                    name: rest[0].name,
+                    city: rest[0].city,
+                    rating: rest[0].rating,
+                    distance: rest[0].distance,
+                    delivery_cost: rest[0].delivery_cost,
+                    delivery_time: rest[0].delivery_time,
+                    total_reviews: rest[0].total_reviews,
+                    is_open: status.is_open,
+                    closing_time_server: status.closing_time_server
+                }
             }
 
-            // --- Insert customization groups ---
+            return ResponseHandler.success(res, 200, `Detail Menu ${menuId} is Found`, result)
+        } catch (err) {
+            return ResponseHandler.error(
+                res,
+                500,
+                err.message
+            )
+        }
+    },
+
+    addCustomizations: async (req, res) => {
+        try {
+            const { customization_groups } = req.body;
+
+            // --- Persiapkan data Groups ---
             const groupsData = customization_groups.map(group => ({
                 id: group.id,
                 group_name: group.group_name,
-                required: group.required || false,
-                max_select: group.max_select || 1
+                required: group.required,
+                max_select: group.max_select
             }));
 
             await MenuModel.createCustomizationGroups(groupsData);
 
-            // --- Insert customization options ---
-            const optionsData = [];
-            customization_groups.forEach(group => {
-                if (group.options && group.options.length > 0) {
-                    group.options.forEach(option => {
-                        optionsData.push({
-                            id: option.id,
-                            group_id: group.id,
-                            option_name: option.option_name,
-                            price_add: option.price_add || 0,
-                            is_available: option.is_available !== false
-                        });
-                    });
-                }
-            });
+            // --- Persiapkan data Options ---
+            const optionsData = customization_groups.flatMap(group =>
+                group.options.map(option => ({
+                    id: option.id,
+                    group_id: group.id, // Ambil ID dari parent-nya
+                    option_name: option.option_name,
+                    price_add: option.price_add,
+                    is_available: option.is_available
+                }))
+            );
 
             if (optionsData.length > 0) {
                 await MenuModel.createCustomizationOptions(optionsData);
             }
 
-            return ResponseHandler.success(res, 200, 'Customizations berhasil ditambahkan', {
-                customization_groups
-            });
-
+            return ResponseHandler.success(res, 201, 'Customizations berhasil ditambahkan');
         } catch (err) {
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + err.message);
         }
@@ -83,23 +93,12 @@ export const MenuController = {
 
     assignCustomizationsToMenus: async (req, res) => {
         try {
-            const { menu_ids = [], group_ids = [] } = req.body;
+            const { menu_ids, group_ids } = req.body;
 
-            if (menu_ids.length === 0) {
-                return ResponseHandler.error(res, 400, 'menu_ids tidak boleh kosong');
-            }
-
-            if (group_ids.length === 0) {
-                return ResponseHandler.error(res, 400, 'group_ids tidak boleh kosong');
-            }
-
-            const pivotData = [];
-
-            menu_ids.forEach(menu_id => {
-                group_ids.forEach(group_id => {
-                    pivotData.push({ menu_id, group_id });
-                });
-            });
+            // Bikin kombinasi menu_id dan group_id (Pivot Table)
+            const pivotData = menu_ids.flatMap(menu_id =>
+                group_ids.map(group_id => ({ menu_id, group_id }))
+            );
 
             await MenuModel.assignCustomizationGroups(pivotData);
 
@@ -116,10 +115,6 @@ export const MenuController = {
     getRecommendedMenus: async (req, res) => {
         try {
             const { lat, lng } = req.query;
-
-            if (!lat || !lng) {
-                return ResponseHandler.error(res, 400, 'Latitude dan longitude wajib diisi');
-            }
 
             // Ambil semua data menu + restaurant dari Supabase
             const data = await MenuModel.getMenusWithRestaurant(
@@ -154,8 +149,8 @@ export const MenuController = {
                     ...getStockInfo(menu.stock),
                     restaurant: {
                         id: menu.restaurant_id,
-                        name:menu.restaurant_name,
-                        city:menu.city,
+                        name: menu.restaurant_name,
+                        city: menu.city,
                         rating: menu.rating,
                         distance: menu.distance,
                         delivery_time: menu.delivery_time,
@@ -174,13 +169,9 @@ export const MenuController = {
 
     getSuggestedMenus: async (req, res) => {
         try {
+            const userId = req.userId;
             const { lat, lng } = req.query;
 
-            if (!lat || !lng) {
-                return ResponseHandler.error(res, 400, 'Latitude dan longitude wajib diisi');
-            }
-
-            const userId = req.userId; 
             const selectedCategories = await UserModel.getUserCategories(userId)
 
             const data = await MenuModel.getMenusWithRestaurant(
@@ -203,11 +194,11 @@ export const MenuController = {
                     ...getStockInfo(menu.stock),
                     restaurant: {
                         id: menu.restaurant_id,
-                        name:menu.restaurant_name,
-                        city:menu.city,
+                        name: menu.restaurant_name,
+                        city: menu.city,
                         rating: menu.rating,
                         distance: menu.distance,
-                        delivery_cost : menu.delivery_cost,
+                        delivery_cost: menu.delivery_cost,
                         delivery_time: menu.delivery_time,
                         is_open: status.is_open,
                         closing_time_server: status.closing_time_server,

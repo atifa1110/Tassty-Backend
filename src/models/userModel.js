@@ -88,6 +88,18 @@ export const UserModel = {
     return data;
   },
 
+  async getAddressById(userId, addressId) {
+    const { data, error } = await supabaseAdmin
+      .from('user_addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('id', addressId) 
+      .maybeSingle(); 
+
+    if (error) throw new Error(error.message);
+    return data;
+},
+
   async getUserProfileByEmail(email) {
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -335,7 +347,7 @@ export const UserModel = {
         status
       `)
       .eq('stripe_pm_id', stripePaymentId)
-      .maybeSingle(); // <--- TAMBAHKAN INI
+      .maybeSingle(); 
 
     if (error) {
       console.error('Error fetching user payment method:', error.message);

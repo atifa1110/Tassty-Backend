@@ -34,38 +34,31 @@ export const ReviewController = {
     createReviewMenu: async (req, res) => {
         try {
             const userId = req.userId;
-            const orderId = req.params.orderId;
-            const { order_item_id, rating, tags = '', comment = '' } = req.body;
+            const orderItemId = req.params.orderItemId;
+            const { rating, tags = '', comment = '' } = req.body;
 
-            if (!orderId || !order_item_id || !rating) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for review order menu');
-            }
-
-            const alreadyReviewed = await ReviewModel.checkMenuReviewExists(userId, order_item_id);
+            const alreadyReviewed = await ReviewModel.checkMenuReviewExists(userId, orderItemId);
             if (alreadyReviewed) {
-                return ResponseHandler.error(res, 400, 'Already review this menu');
+                return ResponseHandler.error(res, 400, 'You have already reviewed this item.');
             }
 
             const reviewData = {
-                order_item_id: order_item_id,
+                order_item_id: orderItemId,
                 user_id: userId,
-                rating: rating,
-                tags: tags,
-                comment: comment
-            }
-            const data = await ReviewModel.createReviewMenu(reviewData);
+                rating,
+                tags: tags || '',
+                comment: comment || ''
+            };
 
+            const data = await ReviewModel.createReviewMenu(reviewData);
             const reviewId = data[0]?.id;
 
             if (!reviewId) {
-                throw new Error("Failed to get Review ID after insert");
+                throw new Error("Failed to generate Review ID");
             }
 
-            await OrderModel.updateOrderItem({
-                menu_review_id: reviewId
-            });
-
-            return ResponseHandler.success(res, 200, 'Review Menu is success');
+            await OrderModel.updateOrderItem(orderItemId, { menu_review_id: reviewId });
+            return ResponseHandler.success(res, 200, 'Review submitted successfully');
         } catch (err) {
             console.error(err);
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + err.message);
@@ -76,17 +69,11 @@ export const ReviewController = {
         try {
             const userId = req.userId;
             const orderId = req.params.orderId;
-
             const { restaurant_id, rating, comment = '' } = req.body;
 
-            if (!orderId || !restaurant_id || !rating) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for review order restaurant');
-            }
-
             const alreadyReviewed = await ReviewModel.checkRestaurantReviewExists(userId, orderId);
-
             if (alreadyReviewed) {
-                return ResponseHandler.error(res, 400, 'Already review this restaurant');
+                return ResponseHandler.error(res, 400, 'You have already reviewed this restauramt.');
             }
 
             const reviewData = {
@@ -94,20 +81,18 @@ export const ReviewController = {
                 user_id: userId,
                 restaurant_id: restaurant_id,
                 rating: rating,
-                comment: comment
-            }
+                comment: comment || ''
+            };
 
             const data = await ReviewModel.createReviewRestaurant(reviewData);
-
             const reviewId = data[0]?.id;
             if (!reviewId) {
                 throw new Error("Failed to get Review ID after insert");
             }
-            await OrderModel.updateOrderById(orderId, {
-                restaurant_review_id: reviewId
-            });
 
-            return ResponseHandler.success(res, 200, 'Review Restaurant is success');
+            await OrderModel.updateOrderById(orderId, { restaurant_review_id: reviewId });
+
+            return ResponseHandler.success(res, 200, 'Review submitted successfully');
         } catch (err) {
             console.error(err);
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + err.message);
@@ -116,20 +101,11 @@ export const ReviewController = {
 
     getReview: async (req, res) => {
         try {
-            const restaurantId = req.params.restaurantId;
-
-            // Optional: validasi sederhana
-            if (!restaurantId) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for review order restaurant');
-            }
-
-            const dummyReviews = getDummyRestaurantReviews(restaurantId);
+            const restId = req.params.restId;
+            const dummyReviews = getDummyRestaurantReviews(restId);
 
             return ResponseHandler.success(
-                res,
-                200,
-                `Review Detail Restaurant`,
-                dummyReviews
+                res,200,`Review Detail Restaurant`,dummyReviews
             );
         } catch (err) {
             console.error(err);
@@ -139,16 +115,10 @@ export const ReviewController = {
 
     getReviewDetail: async (req, res) => {
         try {
-            const restaurantId = req.params.restaurantId;
-
-            // Optional: validasi sederhana
-            if (!restaurantId) {
-                return ResponseHandler.error(res, 400, 'Missing required fields for review order restaurant');
-            }
-
-            const summary = await ReviewModel.getRestaurantReviewSummary(restaurantId);
-            const reviews = await ReviewModel.getRestaurantReviews(restaurantId);
-            const dummyReviews = getDummyRestaurantReviews(restaurantId);
+            const restId = req.params.restId;
+            const summary = await ReviewModel.getRestaurantReviewSummary(restId);
+            const reviews = await ReviewModel.getRestaurantReviews(restId);
+            const dummyReviews = getDummyRestaurantReviews(restId);
 
             // 3️⃣ merge
             const mergedReviews = [
@@ -157,14 +127,14 @@ export const ReviewController = {
             ];
 
             const finalResponse = {
-                summary: summary,    
-                reviews: mergedReviews 
+                summary: summary,
+                reviews: mergedReviews
             };
 
             return ResponseHandler.success(
                 res,
                 200,
-                `Review Restaurant ${restaurantId}`,
+                `Review Restaurant ${restId}`,
                 finalResponse
             );
         } catch (err) {

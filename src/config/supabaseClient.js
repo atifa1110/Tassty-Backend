@@ -16,6 +16,11 @@ export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10 
+    }
   }
 })
 
@@ -34,3 +39,48 @@ export const findUserByEmail = async (email) => {
   if (error) return null
   return data.users.find(u => u.email === email) || null
 }
+
+/**
+ * 🛵 DRIVER SIMULATOR (BROADCAST)
+ * Fungsi ini akan mengirimkan index posisi driver setiap 5 detik
+ */
+
+export const startDriverSimulation = (orderId, steps) => {
+    return new Promise((resolve) => {
+        const channel = supabaseAdmin.channel(`tracking:${orderId}`);
+
+        channel.subscribe((status) => {
+            console.log(`📡 [Realtime] Status: ${status}`);
+
+            if (status === 'SUBSCRIBED') {
+                console.log(`🚀 Simulator started for ${orderId}`);
+                
+                resolve();
+
+                let currentIndex = 0;
+                const interval = setInterval(async () => {
+                    currentIndex++;
+                    try {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'location_update',
+                            payload: { 
+                                currentStepIndex: currentIndex,
+                                isSimulated: true
+                            }
+                        });
+                        console.log(`Step ${currentIndex}`);
+                    } catch (e) {
+                        console.error(`Send failed`, e);
+                    }
+
+                    if (currentIndex >= steps) {
+                        clearInterval(interval);
+                        console.log(`Driver arrived: ${orderId}`);
+                        supabaseAdmin.removeChannel(channel);
+                    }
+                }, 5000);
+            }
+        });
+    });
+};

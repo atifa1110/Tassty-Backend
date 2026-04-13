@@ -10,7 +10,7 @@ export const ChatController = {
             const { orderId } = req.body;
 
             if (!orderId || !userId) {
-                return ResponseHandler.error(res, 400, 'Order, Customer, and Driver IDs are required.');
+                return ResponseHandler.error(res, 400, 'Order IDs are required.');
             }
 
             const data = await OrderModel.getOrderById(orderId);

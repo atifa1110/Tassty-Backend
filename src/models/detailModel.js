@@ -71,12 +71,10 @@ export const DetailModel = {
       .eq('menu_id', menuId)
 
     if (groupError) throw new Error(groupError.message)
-
     const groupList = groups.map(g => g.customization_groups)
 
     // ambil option
     const groupIds = groupList.map(g => g.id)
-
     const { data: options, error: optError } = await supabaseAdmin
       .from('customization_options')
       .select('*')

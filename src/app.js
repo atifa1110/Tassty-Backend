@@ -1,14 +1,12 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import cors from 'cors'
-import serverless from 'serverless-http';
 import { OrderModel } from './models/orderModel.js'
 import authRoutes from './routes/authRoutes.js'
 import restaurantRoutes from './routes/restaurantRoutes.js'
 import voucherRoutes from './routes/voucherRoutes.js'
 import menuRoutes from './routes/menuRoutes.js'
 import searchRoutes from './routes/searchRoutes.js'
-import detailRoutes from './routes/detailRoutes.js'
 import filterRoutes from './routes/filterRoutes.js'
 import orderRoutes from './routes/orderRoutes.js'
 import reviewRoutes from './routes/reviewRoutes.js'
@@ -32,7 +30,6 @@ app.use('/restaurants', restaurantRoutes)
 app.use('/vouchers', voucherRoutes)
 app.use('/menus', menuRoutes)
 app.use('/search', searchRoutes)
-app.use('/detail', detailRoutes)
 app.use('/filters', filterRoutes)
 app.use('/orders', orderRoutes)
 app.use('/reviews', reviewRoutes)
@@ -113,9 +110,9 @@ app.post("/webhook/stream",express.raw({ type: "*/*" }),(req, res) => {
   }
 );
 
-//app.listen(3000, () => console.log('Server running on http://localhost:3000'))
-app.get('/', (req, res) => {
-  res.send('API is running 🚀')
-})
+app.listen(3000, () => console.log('Server running on http://localhost:3000'))
+// app.get('/', (req, res) => {
+//   res.send('API is running 🚀')
+// })
 
 export default app;

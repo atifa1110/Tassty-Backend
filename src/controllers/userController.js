@@ -6,64 +6,14 @@ import stripe from '../config/stripeService.js'
 import { getPaymentMethodDetail } from '../config/stripeService.js'
 
 export const UserController = {
-    getUserProfile: async (req, res) => {
-        try {
-            const userId = req.userId;
-            if (!userId) {
-                return ResponseHandler.error(res, 400, "User ID is required.");
-            }
-
-            let user = await UserModel.getUserProfile(userId)
-
-            let selectedCategories = [];
-
-            if (user.selected_category_ids?.length) {
-                let categories = await RestaurantModel.getCategoryNamesByIds(user.selected_category_ids)
-                selectedCategories = categories;
-            }
-
-            return ResponseHandler.success(res, 200, "Get Profile Successfully", {
-                id: userId,
-                email: user.email,
-                name: user.name,
-                profile_image: user.profile_image,
-                category_ids: selectedCategories
-            });
-
-        } catch (err) {
-            console.error(err);
-            return ResponseHandler.error(res, 500, "Internal Server Error");
-        }
-    },
-
-    getUserAddress: async (req, res) => {
-        try {
-            const userId = req.userId;
-            if (!userId) {
-                return ResponseHandler.error(res, 400, "User ID is required.");
-            }
-
-            let data = await UserModel.getUserAddresses(userId)
-
-            return ResponseHandler.success(res, 200, "Get Profile Successfully", data);
-        } catch (err) {
-            console.error(err);
-            return ResponseHandler.error(res, 500, "Internal Server Error");
-        }
-    },
-
     updateUserProfile: async (req, res) => {
         try {
             const userId = req.userId;
             const { name } = req.body;
             const file = req.file;
 
-            if (!userId) {
-                console.error("Error: UserId tidak ditemukan di request");
-                return ResponseHandler.error(res, 400, "User ID is required.");
-            }
-
-            const updates = { name: name };
+            const updates = {};
+            if (name) updates.name = name;
 
             if (file) {
                 const fileName = `${userId}/avatar.jpg`;
@@ -105,23 +55,28 @@ export const UserController = {
             }
 
             // 3. Update Supabase Auth metadata
-            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-                userId,
-                { user_metadata: { full_name: name } }
-            );
+            if (name) {
+                const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+                    userId,
+                    { user_metadata: { full_name: name } }
+                );
 
-            if (authError) {
-                console.error("Auth Admin Error:", authError.message);
-                return ResponseHandler.error(res, 400, authError.message);
+                if (authError) {
+                    return ResponseHandler.error(res, 400, "Auth update failed: " + authError.message);
+                }
             }
 
             console.log("Auth Metadata Berhasil Diupdate");
             console.log("Mengirim Update ke Database:", updates);
-            await UserModel.updateUserProfile(userId, updates);
+            if (Object.keys(updates).length > 0) {
+                await UserModel.updateUserProfile(userId, updates);
+            } else {
+                return ResponseHandler.error(res, 400, "No data provided to update.");
+            }
 
             return ResponseHandler.success(res, 200, "Profile updated successfully", {
-                name: updates.name,
-                profileImage: updates.profile_image
+                name: updates.name || null,
+                profileImage: updates.profile_image || null
             });
 
         } catch (err) {
@@ -134,6 +89,81 @@ export const UserController = {
         }
     },
 
+    getUserProfile: async (req, res) => {
+        try {
+            const userId = req.userId;
+            let user = await UserModel.getUserProfile(userId)
+
+            let selectedCategories = [];
+
+            if (user.selected_category_ids?.length) {
+                let categories = await RestaurantModel.getCategoryNamesByIds(user.selected_category_ids)
+                selectedCategories = categories;
+            }
+
+            return ResponseHandler.success(res, 200, "Get Profile Successfully", {
+                id: userId,
+                email: user.email,
+                name: user.name,
+                profile_image: user.profile_image,
+                category_ids: selectedCategories
+            });
+
+        } catch (err) {
+            console.error(err);
+            return ResponseHandler.error(res, 500, "Internal Server Error");
+        }
+    },
+
+    createAddress: async (req, res) => {
+        try {
+            const userId = req.userId;
+            const {
+                addressType,
+                fullAddress,
+                landmarkDetail,
+                addressName,
+                lat,
+                lng,
+            } = req.body;
+
+            const profile = await UserModel.getUserProfile(userId);
+            const isFirstAddress = !profile.user_addresses || profile.user_addresses.length === 0;
+
+            const newAddress = {
+                user_id: userId,
+                address_type: addressType,
+                address_name: addressName,
+                full_address: fullAddress,
+                landmark_detail: landmarkDetail,
+                latitude: lat,
+                longitude: lng,
+                is_primary: isFirstAddress
+            };
+
+            await UserModel.createUserAddress(newAddress)
+            return ResponseHandler.success(res, 200, 'Add Address Success', {
+                address_name: addressName,
+                is_primary: isFirstAddress
+            });
+
+        } catch (err) {
+            // Setiap error dari UserModel (Foreign Key violation, dll.) akan tertangkap di sini.
+            console.error("Add Address Failed:", err);
+            return ResponseHandler.error(res, 500, 'Internal Server Error');
+        }
+    },
+    getUserAddress: async (req, res) => {
+        try {
+            const userId = req.userId;
+            let data = await UserModel.getUserAddresses(userId)
+
+            return ResponseHandler.success(res, 200, "Get Profile Successfully", data);
+        } catch (err) {
+            console.error(err);
+            return ResponseHandler.error(res, 500, "Internal Server Error");
+        }
+    },
     createStripeSetupIntent: async (req, res) => {
         try {
             const userId = req.userId;
@@ -153,7 +183,10 @@ export const UserController = {
                 stripeCustomerId = customer.id;
 
                 // Simpan stripe_customer_id ke tabel users kamu di Supabase
-                await supabaseAdmin.from("users").update({ stripe_customer_id: stripeCustomerId }).eq("id", userId);
+                //await supabaseAdmin.from("users").update({ stripe_customer_id: stripeCustomerId }).eq("id", userId);
+                await UserModel.updateUserProfile(userId, {
+                    stripe_customer_id: stripeCustomerId
+                });
             }
 
             // Buat SetupIntent
@@ -178,13 +211,9 @@ export const UserController = {
             const userId = req.userId;
             const { paymentMethodId, themeColor, themeBackground } = req.body;
 
-            if (!paymentMethodId) {
-                return ResponseHandler.error(res, 400, "Payment method ID is required");
-            }
-
             const paymentMethod = await getPaymentMethodDetail(paymentMethodId);
             if (!paymentMethod.card) {
-                throw new Error("Data kartu tidak ditemukan di objek PaymentMethod Stripe");
+                return ResponseHandler.error(res, 500, "Data kartu tidak ditemukan di objek PaymentMethod Stripe");
             }
 
             const dataToInsert = {
@@ -195,8 +224,8 @@ export const UserController = {
                 card_brand: paymentMethod.card.brand,
                 exp_month: paymentMethod.card.exp_month,
                 exp_year: paymentMethod.card.exp_year,
-                theme_color: themeColor || "blue",
-                theme_background: themeBackground || "pattern_1",
+                theme_color: themeColor,
+                theme_background: themeBackground,
                 status: "ACTIVE"
             };
 
@@ -218,46 +247,6 @@ export const UserController = {
         } catch (err) {
             console.error("Save Card Error:", err);
             return ResponseHandler.error(res, 500, "Fetch Card Error");
-        }
-    },
-
-    createAddress: async (req, res) => {
-        try {
-            const userId = req.userId;
-
-            const {
-                addressType,
-                fullAddress,
-                landmarkDetail,
-                addressName,
-                latitude,
-                longitude,
-            } = req.body;
-
-            const profile = await UserModel.getUserProfile(userId);
-            const isFirstAddress = !profile.user_addresses || profile.user_addresses.length === 0;
-
-            const newAddress = {
-                user_id: userId,
-                address_type: addressType,
-                address_name: addressName,
-                full_address: fullAddress,
-                landmark_detail: landmarkDetail,
-                latitude: latitude,
-                longitude: longitude,
-                is_primary: isFirstAddress
-            };
-
-            await UserModel.createUserAddress(newAddress)
-            return ResponseHandler.success(res, 200, 'Add Address Success', {
-                address_name: addressName,
-                is_primary: isFirstAddress
-            });
-
-        } catch (err) {
-            // Setiap error dari UserModel (Foreign Key violation, dll.) akan tertangkap di sini.
-            console.error("Add Address Failed:", err);
-            return ResponseHandler.error(res, 500, 'Internal Server Error');
         }
     },
 

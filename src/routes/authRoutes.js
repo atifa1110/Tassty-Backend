@@ -23,6 +23,6 @@ router.post('/forgot-password', validate(resendEmailSchema), AuthController.requ
 router.post('/verify-reset-otp', validate(verifySchema),AuthController.verifyResetOtp)
 router.post('/reset-password', validate(updatePasswordSchema), authMiddleware.authenticate, AuthController.resetPassword)
 
-router.post('/logout', AuthController.logout)
+router.post('/logout', authMiddleware.authenticate, AuthController.logout)
 
 export default router

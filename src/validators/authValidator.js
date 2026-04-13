@@ -24,10 +24,14 @@ export const registerSchema = Joi.object({
     "string.min": "Password must be at least 8 characters long",
     "any.required": "Password is required"
   }),
-  role: Joi.string().valid("USER", "DRIVER").required().messages({
-    "any.only": "Role must be either 'USER' or 'DRIVER'",
-    "any.required": "Role is required"
-  })
+
+  role: Joi.string()
+    .valid('USER', 'DRIVER')
+    .default('USER') 
+    .messages({
+      "any.only": "Role must be either 'USER' or 'DRIVER'",
+      "any.required": "Role is required"
+    })
 });
 
 export const verifySchema = Joi.object({
@@ -58,10 +62,10 @@ export const refreshTokenSchema = Joi.object({
 
 export const setupSchema = Joi.object({
   addressType: Joi.string()
-    .valid("PERSONAL", "BUSINESS", "OTHER") 
+    .valid("PERSONAL", "BUSINESS") 
     .default("PERSONAL")
     .messages({
-      "any.only": "Address type must be 'PERSONAL', 'BUSINESS', or 'OTHER'"
+     'any.only': 'Address type must be either PERSONAL or BUSINESS.',
     }),
   
   addressName: Joi.string().required().messages({
@@ -78,12 +82,12 @@ export const setupSchema = Joi.object({
     "any.required": "Landmark details are required to help drivers find you"
   }),
 
-  latitude: Joi.number().min(-90).max(90).required().messages({
+  lat: Joi.number().min(-90).max(90).required().messages({
     "number.base": "Latitude must be a number",
     "any.required": "Latitude is required"
   }),
 
-  longitude: Joi.number().min(-180).max(180).required().messages({
+  lng: Joi.number().min(-180).max(180).required().messages({
     "number.base": "Longitude must be a number",
     "any.required": "Longitude is required"
   }),

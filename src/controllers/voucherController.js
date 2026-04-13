@@ -5,11 +5,6 @@ export const VoucherController = {
     getVoucherToday: async (req, res) => {
         try {
             const userId = req.userId;
-
-            if (!userId) {
-                return ResponseHandler.error(res, 401, 'Unauthorized: User ID not found in token');
-            }
-
             const vouchers = await VoucherModel.getUserVoucher(userId);
             const todayVouchers = vouchers.filter(v => 
             v.status === 'AVAILABLE' && 
@@ -22,8 +17,8 @@ export const VoucherController = {
     },
     getVoucherRestaurant: async (req, res) => {
         try {
-            const { id } = req.params
-            const vouchers = await VoucherModel.getVoucherRestaurant(id);
+            const { restId } = req.params
+            const vouchers = await VoucherModel.getVoucherRestaurant(restId);
             return ResponseHandler.success(res, 200, 'Get Vouchers Success', vouchers);
         } catch (err) {
             return ResponseHandler.error(res, 500, 'Internal Server Error: ' + err.message);
@@ -32,11 +27,6 @@ export const VoucherController = {
     getVoucherUser: async (req, res) => {
         try {
             const userId = req.userId;
-
-            if (!userId) {
-                return ResponseHandler.error(res, 401, 'Unauthorized: User ID not found in token');
-            }
-
             const vouchers = await VoucherModel.getUserVoucher(userId);
             return ResponseHandler.success(res, 200, 'Get Vouchers Success', vouchers);
         } catch (err) {
