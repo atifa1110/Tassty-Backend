@@ -8,7 +8,7 @@ const router = express.Router()
 const authMiddleware = new AuthMiddleware();
 
 router.get('/todays', authMiddleware.authenticate, VoucherController.getVoucherToday)
-router.get('/restaurant/:restId', validate(restSchema), authMiddleware.authenticate, VoucherController.getVoucherRestaurant)
-router.get('/user', authMiddleware.authenticate, authMiddleware.authenticate("USER"), VoucherController.getVoucherUser)
+router.get('/restaurant/:restId', authMiddleware.authenticate, validate(restSchema), VoucherController.getVoucherRestaurant)
+router.get('/user', authMiddleware.authenticate, authMiddleware.authorize("USER"), VoucherController.getVoucherUser)
 
 export default router
