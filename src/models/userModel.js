@@ -68,7 +68,6 @@ export const UserModel = {
       .eq('id', userId)
       .maybeSingle(); // Pakai maybeSingle agar tidak throw error kalau kosong
 
-    console.error("Database error : ", error.message);
     if (error) throw new Error("Database error");
 
     // Jika data profil tidak ditemukan, jangan biarkan lanjut ke ChatModel
@@ -170,7 +169,6 @@ export const UserModel = {
       .eq('id', driverId)
       .maybeSingle(); // Pakai maybeSingle lebih aman daripada .single()
 
-    console.error("Database error : ", error.message);
     if (error) throw new Error("Database error");
 
     // Tambahkan pengecekan ini

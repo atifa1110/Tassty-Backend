@@ -17,7 +17,7 @@ export const ChatModel = {
                 id: userId,
                 name: userName || userId,
                 image: userImage || 'default_image_url',
-                user_role: role
+                user_role: userRole
             };
 
             // Lakukan upsert user (Update atau Insert)

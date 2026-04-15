@@ -145,9 +145,11 @@ export const AuthController = {
       }
 
       const userId = data.user.id;
-      const role = (data.user.user_metadata?.role || 'USER').toUpperCase();
+      const role = data.user.user_metadata?.role
       let profile;
 
+      console.log("Data", role);
+      
       try {
         if (role === 'DRIVER') {
           profile = await UserModel.getDriverProfilebyId(userId);
@@ -216,6 +218,7 @@ export const AuthController = {
   setup: async (req, res) => {
     try {
       const userId = req.userId;
+      const userRole = req.userRole
 
       const {
         addressType,
@@ -253,7 +256,7 @@ export const AuthController = {
       await UserModel.updateCategories(userId, categoryIds)
 
       const streamToken = await ChatModel.generateUserToken(userId,
-        profile.name, profile.profile_image);
+        profile.name, profile.profile_image, userRole);
 
       // Respon Sukses
       return ResponseHandler.success(res, 200, 'Setup Account Success', {
