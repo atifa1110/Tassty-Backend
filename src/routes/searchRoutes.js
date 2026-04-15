@@ -8,6 +8,6 @@ const router = express.Router()
 const authMiddleware = new AuthMiddleware();
 
 // search restaurant with menu
-router.get('/',validate(searchSchema) , authMiddleware.authenticate, SearchController.getSearchRestaurantMenus)
+router.get('/', authMiddleware.authenticate, validate(searchSchema) ,SearchController.getSearchRestaurantMenus)
 
 export default router

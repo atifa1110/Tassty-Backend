@@ -23,3 +23,21 @@ Tassty adalah backend service untuk aplikasi pengiriman makanan yang dibangun de
 1. Clone repository:
    ```bash
    git clone [https://github.com/atifa110/Tassty-Backend.git](https://github.com/atifa1110/Tassty-Backend)
+
+## 🌐 Deployment
+
+Backend **Tassty** sudah di-deploy dan dapat diakses secara online menggunakan **Vercel**.
+
+## 🌐 Live Demo
+Aplikasi ini telah dideploy secara otomatis menggunakan Vercel. Anda dapat mencoba API-nya secara langsung di:
+🔗 [https://tassty-backend.vercel.app](https://tassty-backend.vercel.app)
+
+*Catatan: Gunakan Postman atau API Client lainnya untuk berinteraksi dengan endpoint.*
+
+### ⚙️ Deployment Details
+- Serverless deployment via Vercel
+- Environment variables dikelola melalui Vercel Dashboard
+- Terintegrasi dengan Supabase untuk database & authentication
+- Mendukung payment gateway:
+  - Xendit (E-Wallet & Virtual Account)
+  - Stripe (Credit Card)
