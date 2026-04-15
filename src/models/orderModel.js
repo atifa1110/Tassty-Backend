@@ -155,7 +155,7 @@ export const OrderModel = {
         `)
       .eq('user_id', userId)
       .eq('id', orderId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Supabase Get Order Summary Error:', error);

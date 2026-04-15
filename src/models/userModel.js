@@ -59,24 +59,25 @@ export const UserModel = {
   },
 
   async getUserProfile(userId) {
-  const { data, error } = await supabaseAdmin
-    .from('users')
-    .select(`
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select(`
       *,
       user_addresses(*)
     `)
-    .eq('id', userId)
-    .maybeSingle(); // Pakai maybeSingle agar tidak throw error kalau kosong
+      .eq('id', userId)
+      .maybeSingle(); // Pakai maybeSingle agar tidak throw error kalau kosong
 
-  if (error) throw new Error(error.message);
-  
-  // Jika data profil tidak ditemukan, jangan biarkan lanjut ke ChatModel
-  if (!data) {
-    throw new Error("User profile not found in database.");
-  }
-  
-  return data;
-},
+    console.error("Database error : ", error.message);
+    if (error) throw new Error("Database error");
+
+    // Jika data profil tidak ditemukan, jangan biarkan lanjut ke ChatModel
+    if (!data) {
+      throw new Error("User not found");
+    }
+
+    return data;
+  },
 
   async getUserAddresses(userId) {
     const { data, error } = await supabaseAdmin
@@ -93,12 +94,12 @@ export const UserModel = {
       .from('user_addresses')
       .select('*')
       .eq('user_id', userId)
-      .eq('id', addressId) 
-      .maybeSingle(); 
+      .eq('id', addressId)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
     return data;
-},
+  },
 
   async getUserProfileByEmail(email) {
     const { data, error } = await supabaseAdmin
@@ -153,15 +154,31 @@ export const UserModel = {
     return data;
   },
 
+  checkIfDriver: async (userId) => {
+    const { data } = await supabaseAdmin
+      .from('drivers')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    return !!data;
+  },
+
   async getDriverProfilebyId(driverId) {
     const { data, error } = await supabaseAdmin
       .from('drivers')
       .select('*')
       .eq('id', driverId)
-      .single()
+      .maybeSingle(); // Pakai maybeSingle lebih aman daripada .single()
 
-    if (error) throw new Error(error.message)
-    return data
+    console.error("Database error : ", error.message);
+    if (error) throw new Error("Database error");
+
+    // Tambahkan pengecekan ini
+    if (!data) {
+      throw new Error("User not found");
+    }
+
+    return data;
   },
 
   async getDriverProfilebyEmail(email) {
@@ -347,7 +364,7 @@ export const UserModel = {
         status
       `)
       .eq('stripe_pm_id', stripePaymentId)
-      .maybeSingle(); 
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching user payment method:', error.message);

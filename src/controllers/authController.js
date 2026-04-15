@@ -13,7 +13,10 @@ export const AuthController = {
         email: email,
         password: password,
         email_confirm: false,
-        user_metadata: { full_name: name }
+        user_metadata: { 
+          full_name: name,
+          role: role 
+        }
       });
 
       if (error) {
@@ -67,7 +70,7 @@ export const AuthController = {
 
       const userCheck = await findUserByEmail(email);
       if (!userCheck) {
-        return ResponseHandler.error(res, 404, "Email not found.");
+        return ResponseHandler.error(res, 404, "Email is not found.");
       }
 
       // Panggil verify Otp dengan parameter yang benar
@@ -142,29 +145,28 @@ export const AuthController = {
       }
 
       const userId = data.user.id;
-
-      const { data: driverCheck } = await supabaseAdmin
-        .from('drivers')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      let isDriver = !!driverCheck;
-
+      const role = (data.user.user_metadata?.role || 'USER').toUpperCase();
       let profile;
 
-      // 3. Ambil Profile Berdasarkan Role
-      if (isDriver) {
-        profile = await UserModel.getDriverProfilebyId(userId);
-      } else {
-        profile = await UserModel.getUserProfile(userId);
+      try {
+        if (role === 'DRIVER') {
+          profile = await UserModel.getDriverProfilebyId(userId);
+        } else {
+          profile = await UserModel.getUserProfile(userId);
+        }
+      } catch (error) {
+        if (error.message.includes("User not found")) {
+          return ResponseHandler.error(res, 404, "Profile not found. Please complete your registration.");
+        }
+
+        throw error;
       }
 
-      const role = isDriver ? 'driver' : 'user';
       const streamToken = await ChatModel.generateUserToken(userId, profile.name, profile.profile_image, role);
 
       return ResponseHandler.success(res, 200, 'Login successful.', {
         user_id: userId,
+        email: email,
         role: role,
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -353,7 +355,7 @@ export const AuthController = {
     try {
       const token = req.token;
       const { error } = await supabaseAdmin.auth.admin.signOut(token, 'global');
-      
+
       if (error) {
         console.error("Supabase Admin SignOut Error:", error.message);
         return ResponseHandler.error(res, 400, "Error erase this server sessions.")

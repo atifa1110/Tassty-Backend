@@ -25,6 +25,7 @@ export const OrderController = {
     createOrder: async (req, res) => {
         try {
             const user_id = req.userId;
+
             const {
                 restaurant_id,
                 voucher_id,
@@ -73,7 +74,7 @@ export const OrderController = {
             });
         } catch (error) {
             console.error('Error creating order:', error);
-            return ResponseHandler.error(res, 500, 'Internal Server Error: ' + error.message);
+            return ResponseHandler.error(res, 500, 'Internal Server Error');
         }
     },
 

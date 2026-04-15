@@ -20,20 +20,18 @@ class AuthMiddleware {
 
             const token = authHeader.split(' ')[1];
 
-            // Memanggil Supabase
+            // Verifikasi token langsung ke Supabase (Paling Aman)
             const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
 
             if (error || !user) {
-                const message = (error?.message?.includes('missing') || error?.status === 401)
-                    ? 'Session expired. Please log in.'
-                    : 'Token verification is failed.';
-                return ResponseHandler.error(res, 401, message);
+                return ResponseHandler.error(res, 401, 'Session expired or invalid token.');
             }
 
             // Simpan data ke request
             req.user = user;
             req.userId = user.id;
             req.token = token;
+            req.userRole = user.user_metadata?.role || 'USER';
 
             // PENTING: Harus panggil next() agar tidak loading terus!
             next();
@@ -44,6 +42,20 @@ class AuthMiddleware {
                 error: err.message
             });
         }
+    }
+
+    /**
+     * Middleware tambahan untuk proteksi ROLE (Complex Check)
+     * Cara pakai: AuthMiddleware.authorize('DRIVER')
+     */
+    authorize = (requiredRole) => {
+        return (req, res, next) => {
+            // Kita ambil dari req.userRole yang sudah diisi middleware authenticate di atas
+            if (req.userRole !== requiredRole) {
+                return ResponseHandler.error(res, 403, `Access Denied: You are not a ${requiredRole}`);
+            }
+            next();
+        };
     }
 }
 

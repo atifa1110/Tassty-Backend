@@ -25,4 +25,4 @@ router.post('/reset-password', validate(updatePasswordSchema), authMiddleware.au
 
 router.post('/logout', authMiddleware.authenticate, AuthController.logout)
 
-export default router
+export default router;

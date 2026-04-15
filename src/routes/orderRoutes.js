@@ -8,7 +8,7 @@ const router = express.Router();
 const authMiddleware = new AuthMiddleware();
 
 // Create a new order
-router.post('/', validate(createOrderSchema), authMiddleware.authenticate, OrderController.createOrder);
+router.post('/', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(createOrderSchema), OrderController.createOrder);
 // Get order list
 router.get('/', authMiddleware.authenticate, OrderController.getOrderList);
 // Get order list pending payment
@@ -17,16 +17,16 @@ router.get('/pending', authMiddleware.authenticate, OrderController.getPendingOr
 // Get available payment list in xendit
 router.get('/payment_channels', authMiddleware.authenticate, OrderController.fetchAvailablePayment);
 //  Payment method with  xendit
-router.post('/:orderId/payments/xendit', validate(paymentXenditSchema) , authMiddleware.authenticate, OrderController.invoiceOrder);
+router.post('/:orderId/payments/xendit', validate(paymentXenditSchema) , authMiddleware.authenticate, authMiddleware.authorize("USER"), OrderController.invoiceOrder);
 // Payment method with stripe
-router.post('/:orderId/payments/stripe', validate(paymentSchema) , authMiddleware.authenticate, OrderController.invoiceCardOrder);
+router.post('/:orderId/payments/stripe', validate(paymentSchema) , authMiddleware.authenticate, authMiddleware.authorize("USER"), OrderController.invoiceCardOrder);
 // Retry invoice
-router.put('/:orderId/retry-payment', validate(paymentXenditSchema), authMiddleware.authenticate, OrderController.retryPayment);
+router.put('/:orderId/retry-payment', validate(paymentXenditSchema), authMiddleware.authenticate, authMiddleware.authorize("USER"), OrderController.retryPayment);
 
 // Update order preparing status
 router.put('/:orderId/accept', validate(orderSchema), authMiddleware.authenticate, OrderController.acceptOrder);
 // Update order delivery status
-router.put('/:orderId/pickup', validate(orderSchema), authMiddleware.authenticate, OrderController.pickupOrder);
+router.put('/:orderId/pickup', validate(orderSchema), authMiddleware.authenticate, authMiddleware.authorize("DRIVER"), OrderController.pickupOrder);
 // Update order complete status
 router.put('/:orderId/complete', validate(orderSchema), authMiddleware.authenticate, OrderController.completeOrder);
 // Update order cancel status
