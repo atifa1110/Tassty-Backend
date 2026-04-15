@@ -9,19 +9,19 @@ const router = express.Router()
 const authMiddleware = new AuthMiddleware();
 
 // Create a new customization group (e.g., "Extra Toppings", "Spiciness Level")
-router.post('/customizations/', validate(createCustomizationSchema), authMiddleware.authenticate, MenuController.addCustomizations)
+router.post('/customizations/', authMiddleware.authenticate, authMiddleware.authorize("ADMIN"), validate(createCustomizationSchema), MenuController.addCustomizations)
 // Assign multiple customization groups to multiple menus
-router.post('/customizations/assign', validate(assignCustomizationSchema), authMiddleware.authenticate, MenuController.assignCustomizationsToMenus)
+router.post('/customizations/assign', authMiddleware.authenticate, authMiddleware.authorize("ADMIN"), validate(assignCustomizationSchema), MenuController.assignCustomizationsToMenus)
 
 // Get recommended menus for home
-router.get('/recommended', validate(locationSchema), authMiddleware.authenticate, MenuController.getRecommendedMenus)
+router.get('/recommended', authMiddleware.authenticate, validate(locationSchema), MenuController.getRecommendedMenus)
 // Get suggested menus for home
-router.get('/suggested', validate(locationSchema), authMiddleware.authenticate, MenuController.getSuggestedMenus)
+router.get('/suggested', authMiddleware.authenticate, validate(locationSchema), MenuController.getSuggestedMenus)
 
 // Create a new menu item
-router.post('/', validate(createMenusSchema), authMiddleware.authenticate, MenuController.createMenus)
+router.post('/', authMiddleware.authenticate, authMiddleware.authorize("ADMIN"), validate(createMenusSchema), MenuController.createMenus)
 // Get detail menu
-router.get('/:menuId', validate(menuDetailSchema), authMiddleware.authenticate, MenuController.getMenuDetail)
+router.get('/:menuId', authMiddleware.authenticate, validate(menuDetailSchema), MenuController.getMenuDetail)
 
 
 export default router

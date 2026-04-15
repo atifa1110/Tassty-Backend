@@ -9,6 +9,6 @@ const authMiddleware = new AuthMiddleware();
 
 router.get('/todays', authMiddleware.authenticate, VoucherController.getVoucherToday)
 router.get('/restaurant/:restId', validate(restSchema), authMiddleware.authenticate, VoucherController.getVoucherRestaurant)
-router.get('/user', authMiddleware.authenticate, VoucherController.getVoucherUser)
+router.get('/user', authMiddleware.authenticate, authMiddleware.authenticate("USER"), VoucherController.getVoucherUser)
 
 export default router

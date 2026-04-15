@@ -15,7 +15,7 @@ class AuthMiddleware {
             const authHeader = req.headers.authorization;
 
             if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                return ResponseHandler.error(res, 401,'Token is missing.');
+                return ResponseHandler.error(res, 401, 'Token is missing.');
             }
 
             const token = authHeader.split(' ')[1];
@@ -48,11 +48,10 @@ class AuthMiddleware {
      * Middleware tambahan untuk proteksi ROLE (Complex Check)
      * Cara pakai: AuthMiddleware.authorize('DRIVER')
      */
-    authorize = (requiredRole) => {
+    authorize = (...allowedRoles) => { // Pakai spread operator biar bisa banyak role
         return (req, res, next) => {
-            // Kita ambil dari req.userRole yang sudah diisi middleware authenticate di atas
-            if (req.userRole !== requiredRole) {
-                return ResponseHandler.error(res, 403, `Access Denied: You are not a ${requiredRole}`);
+            if (!allowedRoles.includes(req.userRole)) {
+                return ResponseHandler.error(res, 403, `Access Denied: Required ${allowedRoles.join(' or ')}`);
             }
             next();
         };

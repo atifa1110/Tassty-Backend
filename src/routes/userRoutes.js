@@ -23,17 +23,17 @@ export const upload = multer({
 
 // Get & Update User Profile
 router.get('/profile',authMiddleware.authenticate, UserController.getUserProfile)
-router.post('/profile', validate(updateUserProfileSchema), authMiddleware.authenticate, upload.single('profileImage'), UserController.updateUserProfile)
+router.post('/profile', authMiddleware.authenticate, upload.single('profileImage'), validate(updateUserProfileSchema), UserController.updateUserProfile)
 
 // Get User Address
-router.get('/addresses',authMiddleware.authenticate,UserController.getUserAddress)
-router.post('/addresses', validate(addressSchema), authMiddleware.authenticate,UserController.createAddress)
+router.get('/addresses',authMiddleware.authenticate, authMiddleware.authorize("USER"), UserController.getUserAddress)
+router.post('/addresses', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(addressSchema), UserController.createAddress)
 
 // Get Payment Card Supabase
 router.get('/stripe-cards',authMiddleware.authenticate,UserController.getUserCard)
-router.post('/stripe/setup-intent', authMiddleware.authenticate, UserController.createStripeSetupIntent);
+router.post('/stripe/setup-intent', authMiddleware.authenticate, authMiddleware.authorize("USER"), UserController.createStripeSetupIntent);
 
 // Add Card To Stripe
-router.post('/stripe-cards', validate(saveCardSchema), authMiddleware.authenticate, UserController.saveNewCard);
+router.post('/stripe-cards', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(saveCardSchema), UserController.saveNewCard);
 
 export default router

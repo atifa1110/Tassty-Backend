@@ -8,9 +8,9 @@ import { restSchema } from '../validators/restaurantValidator.js';
 const router = express.Router()
 const authMiddleware = new AuthMiddleware();
 
-router.post('/:orderItemId', validate(createReviewMenuSchema) ,authMiddleware.authenticate, authMiddleware.authorize("USER"), ReviewController.createReviewMenu)
-router.post('/:orderId/restaurant', validate(createRestaurantReviewSchema),authMiddleware.authenticate, authMiddleware.authorize("USER"), ReviewController.createReviewRestaurant)
-router.get('/:restId', validate(restSchema), authMiddleware.authenticate, ReviewController.getReview)
-router.get('/:restId/detail', validate(restSchema), authMiddleware.authenticate, ReviewController.getReviewDetail)
+router.post('/:orderItemId', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(createReviewMenuSchema), ReviewController.createReviewMenu)
+router.post('/:orderId/restaurant',authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(createRestaurantReviewSchema), ReviewController.createReviewRestaurant)
+router.get('/:restId',  authMiddleware.authenticate, validate(restSchema),ReviewController.getReview)
+router.get('/:restId/detail', authMiddleware.authenticate, validate(restSchema), ReviewController.getReviewDetail)
 
 export default router
