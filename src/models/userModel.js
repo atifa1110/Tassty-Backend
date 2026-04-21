@@ -88,6 +88,19 @@ export const UserModel = {
     return data;
   },
 
+  async deleteUserAddress(addressId) {
+    const { data, error } = await supabaseAdmin
+      .from('user_addresses')
+      .delete()
+      .eq('id', addressId); 
+
+    if (error) {
+      console.error('Error deleting user address:', error.message);
+      throw new Error(error.message);
+    }
+    return data;
+},
+
   async getAddressById(userId, addressId) {
     const { data, error } = await supabaseAdmin
       .from('user_addresses')
@@ -322,7 +335,7 @@ export const UserModel = {
     return data;
   },
 
-  async getUserCard(userId) {
+  async getUserCardByUserId(userId) {
     const { data, error } = await supabaseAdmin
       .from('user_payment_methods')
       .select(`
@@ -338,9 +351,37 @@ export const UserModel = {
         status
       `)
       .eq('user_id', userId)
+      .eq('status', 'ACTIVE')
 
     if (error) {
       console.error('Error fetching user payment method:', error.message);
+      throw new Error(error.message);
+    }
+    return data;
+  },
+
+  async getUserCardById(cardId) {
+    const { data, error } = await supabaseAdmin
+      .from('user_payment_methods')
+      .select('*')
+      .eq('id', cardId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user payment method:', error.message);
+      throw new Error(error.message);
+    }
+    return data;
+  },
+
+  async deleteUserCardById(id) {
+    const { data, error } = await supabaseAdmin
+      .from('user_payment_methods')
+       .update({ status: 'DELETED' })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting payment method from DB:', error.message);
       throw new Error(error.message);
     }
     return data;

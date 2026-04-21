@@ -54,5 +54,21 @@ export const getPaymentMethodDetail = async (paymentMethodId) => {
   return await stripe.paymentMethods.retrieve(paymentMethodId);
 };
 
+/**
+ * Fungsi: Menghapus Kartu (Detach)
+ * Menghapus keterkaitan kartu dengan customer agar tidak muncul lagi
+ */
+export const deletePaymentMethod = async (paymentMethodId) => {
+  try {
+    return await stripe.paymentMethods.detach(paymentMethodId);
+  } catch (error) {
+    console.error("Gagal menghapus kartu dari Stripe:", error.message);
+    if (error.code === 'resource_missing') {
+        error.statusCode = 404;
+    }
+    throw error;
+  }
+};
+
 // Export instance stripe-nya juga kalau-kalau butuh akses method lain
 export default stripe;

@@ -21,7 +21,7 @@ export const AuthController = {
 
       if (error) {
         if (error.status === 422 || error.message.includes("already registered")) {
-          return ResponseHandler.error(res, 400, "email address is already in used!");
+          return ResponseHandler.error(res, 400, "Email address is already in used!");
         }
         return ResponseHandler.error(res, 400, error.message);
       }
@@ -361,7 +361,7 @@ export const AuthController = {
 
       if (error) {
         console.error("Supabase Admin SignOut Error:", error.message);
-        return ResponseHandler.error(res, 400, "Error erase this server sessions.")
+        return ResponseHandler.success(res, 200, "Session cleared (cleanup).");
       }
       return ResponseHandler.success(res, 200, "Logout is Success!");
     } catch (err) {

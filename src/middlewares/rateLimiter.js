@@ -4,7 +4,7 @@ import ResponseHandler from "../utils/responseHandler.js";
 // Global limiter (semua API)
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 300, // max 300 request / IP
+  max: 100, // max 300 request / IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {

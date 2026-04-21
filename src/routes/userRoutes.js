@@ -3,7 +3,7 @@ import { UserController } from '../controllers/userController.js';
 import AuthMiddleware from '../middlewares/authMiddleware.js'
 import multer from 'multer';
 import { validate } from '../middlewares/validate.js';
-import { updateUserProfileSchema, saveCardSchema, addressSchema } from '../validators/userValidator.js';
+import { updateUserProfileSchema, saveCardSchema, addressSchema, deleteAddressSchema, deleteCardSchema } from '../validators/userValidator.js';
 
 const router = express.Router()
 const authMiddleware = new AuthMiddleware();
@@ -28,6 +28,7 @@ router.post('/profile', authMiddleware.authenticate, upload.single('profileImage
 // Get User Address
 router.get('/addresses',authMiddleware.authenticate, authMiddleware.authorize("USER"), UserController.getUserAddress)
 router.post('/addresses', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(addressSchema), UserController.createAddress)
+router.delete('/addresses/:addressId', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(deleteAddressSchema), UserController.deleteUserAddress)
 
 // Get Payment Card Supabase
 router.get('/stripe-cards',authMiddleware.authenticate,UserController.getUserCard)
@@ -35,5 +36,6 @@ router.post('/stripe/setup-intent', authMiddleware.authenticate, authMiddleware.
 
 // Add Card To Stripe
 router.post('/stripe-cards', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(saveCardSchema), UserController.saveNewCard);
+router.delete('/stripe-cards/:cardId', authMiddleware.authenticate, authMiddleware.authorize("USER"), validate(deleteCardSchema), UserController.deleteUserCard);
 
 export default router

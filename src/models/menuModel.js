@@ -48,10 +48,36 @@ export const MenuModel = {
     const { data, error } = await supabaseAdmin.rpc('get_menus_with_restaurant', {
       p_user_lat: user_lat,
       p_user_lng: user_lng,
-      p_categories: categories 
+      p_categories: categories
     });
 
     if (error) throw new Error(error.message);
     return data;
-  }
+  },
+  async getMenusByIds(ids) {
+    const { data, error } = await supabaseAdmin
+      .from('menus')
+      .select('*')
+      .in('id', ids);
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getOptionsWithGroups(optionIds) {
+    const { data, error } = await supabaseAdmin
+        .from('customization_options') 
+        .select(`
+            id,
+            option_name,
+            price_add,
+            customization_groups (
+                group_name
+            )
+        `)
+        .in('id', optionIds);
+
+    if (error) throw error;
+    return data;
+}
 }

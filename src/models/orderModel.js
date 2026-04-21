@@ -28,6 +28,21 @@ export const OrderModel = {
     return data;
   },
 
+  async getDeliveryFee(restId, address_id) {
+    const { data, error } = await supabaseAdmin.rpc('get_order_quotation', {
+      p_restaurant_id: restId,
+      p_address_id: address_id,
+    });
+
+    if (error) throw new Error(error.message);
+
+    if (!data || data.length === 0) {
+      throw new Error("Data ongkir tidak ditemukan");
+    }
+
+    return data[0].delivery_cost;
+  },
+
   async updateOrderById(orderId, updates) {
     const { data, error } = await supabaseAdmin
       .from('orders')

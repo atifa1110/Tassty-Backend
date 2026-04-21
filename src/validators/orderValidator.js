@@ -19,11 +19,7 @@ export const createOrderSchema = Joi.object({
       'string.empty': 'Address ID is required.'
     }),
 
-  total_price: Joi.number().min(0).required(),
-  delivery_fee: Joi.number().min(0).required(),
-  total_order: Joi.number().min(0).required(), 
-  discount: Joi.number().min(0).default(0),
-
+  total_order: Joi.number().min(0).required(),
   items: Joi.array().items(
     Joi.object({
       menu_id: Joi.string()
@@ -35,7 +31,7 @@ export const createOrderSchema = Joi.object({
       quantity: Joi.number().min(1).required(),
       price: Joi.number().min(0).required(),
       notes: Joi.string().allow(null, '').optional(),
-      options: Joi.any().optional() 
+      option_ids: Joi.array().items(Joi.string()).default([])
     })
   ).min(1).required()
 }).messages({

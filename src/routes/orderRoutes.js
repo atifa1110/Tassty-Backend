@@ -8,7 +8,7 @@ const router = express.Router();
 const authMiddleware = new AuthMiddleware();
 
 // Create a new order
-router.post('/', authMiddleware.authenticate, authMiddleware.authorize('USER', 'ADMIN') , validate(createOrderSchema), OrderController.createOrder);
+router.post('/', authMiddleware.authenticate, authMiddleware.authorize('USER', 'ADMIN'), validate(createOrderSchema), OrderController.createOrder);
 // Get order list
 router.get('/', authMiddleware.authenticate, OrderController.getOrderList);
 // Get order list pending payment

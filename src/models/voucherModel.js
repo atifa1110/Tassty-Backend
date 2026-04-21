@@ -57,6 +57,18 @@ export const VoucherModel = {
 
     // data akan berupa array of objects karena fungsi SQL kita RETURNS SETOF voucher
     return data || [];
-  }
+  },
 
+  async getVoucherById(voucherId) {
+    const { data, error } = await supabaseAdmin
+    .from('voucher')
+    .select('*')
+    .eq('id',voucherId).single()
+
+    if (error) {
+      console.error('Error fetching vouchers:', error);
+    }
+
+    return data;
+  }
 }

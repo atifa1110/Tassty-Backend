@@ -100,12 +100,12 @@ export const DetailModel = {
 
     return {
       id: menu.id,
-      restaurant_id : menu.restaurant_id,
+      restaurant_id: menu.restaurant_id,
       name: menu.name,
       description: menu.description,
       image_url: menu.image_url,
       promo: menu.promo,
-      price_original :  menu.price_original,
+      price_original: menu.price_original,
       price_discount: menu.price_discount,
       customizable: menu.customizable,
       ...stockInfo,

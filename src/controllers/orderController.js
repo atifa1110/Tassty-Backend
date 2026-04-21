@@ -9,6 +9,11 @@ import { startDriverSimulation } from '../config/supabaseClient.js';
 import { processPayment } from '../config/stripeService.js';
 import { getPolylineData } from '../utils/mapsHelper.js';
 import polyline from '@mapbox/polyline';
+import { MenuModel } from '../models/menuModel.js';
+import { VoucherModel } from '../models/voucherModel.js';
+import { VoucherHelper } from '../utils/voucherHelper.js';
+import { PriceHelper } from '../utils/priceHelper.js';
+import { FormatHelper } from '../utils/formatHelper.js';
 
 // Fungsi Helper untuk membuat 10 digit angka acak
 const generateOrderNumber = () => {
@@ -25,58 +30,104 @@ export const OrderController = {
     createOrder: async (req, res) => {
         try {
             const user_id = req.userId;
-
             const {
                 restaurant_id,
                 voucher_id,
                 address_id,
-                total_price,
-                delivery_fee,
-                discount = 0,
                 total_order,
                 items
             } = req.body;
+
+            const calculatedDeliveryFee = await OrderModel.getDeliveryFee(restaurant_id, address_id);
+
+            const menuIds = items.map(item => item.menu_id);
+            const dbMenus = await MenuModel.getMenusByIds(menuIds);
+
+            let calculatedSubtotal = 0;
+            const processedItems = [];
+            for (const item of items) {
+                // Cari info menu
+                const menuInfo = dbMenus.find(m => m.id === item.menu_id);
+                if (!menuInfo) {
+                    return ResponseHandler.error(res, 404, `Menu ${item.menu_id} tidak ditemukan`);
+                }
+
+                // Ambil data options dari DB berdasarkan ID
+                const selectedOptions = await MenuModel.getOptionsWithGroups(item.option_ids);
+                // Hitung Subtotal (Harga Menu + Topping) * Quantity
+                const basePrice = PriceHelper.calculateBasePrice(menuInfo);
+                const pricePerItem = PriceHelper.calculateItemPrice(basePrice, selectedOptions);
+                calculatedSubtotal += pricePerItem * item.quantity;
+
+                const optionDetailText = FormatHelper.formatSelectedOptions(selectedOptions);
+
+                processedItems.push({
+                    menu_id: item.menu_id,
+                    quantity: item.quantity,
+                    price_at_order: pricePerItem,
+                    notes: item.notes || null,
+                    options: optionDetailText
+                });
+            }
+
+            // 3. Hitung Voucher
+            let calculatedDiscount = 0;
+            if (voucher_id) {
+                const voucher = await VoucherModel.getVoucherById(voucher_id);
+                calculatedDiscount = VoucherHelper.calculateDiscount(voucher, calculatedSubtotal, calculatedDeliveryFee);
+            }
+
+            const finalAmountFromServer = calculatedSubtotal + calculatedDeliveryFee - calculatedDiscount;
+            if (finalAmountFromServer !== Number(total_order)) {
+                return ResponseHandler.error(res, 409, "Prices have updated. Please check your order again.");
+            }
 
             const orderPayload = {
                 order_number: generateOrderNumber(),
                 user_id: user_id,
                 restaurant_id: restaurant_id,
-                voucher_id: voucher_id,
+                voucher_id: voucher_id || null,
                 delivery_address_id: address_id,
                 status: 'PENDING_PAYMENT',
                 payment_status: 'PENDING',
-                total_price: total_price,
-                delivery_fee: delivery_fee,
-                discount: discount,
-                final_amount: total_order
+                total_price: calculatedSubtotal,
+                delivery_fee: calculatedDeliveryFee,
+                discount: calculatedDiscount,
+                final_amount: finalAmountFromServer
             };
 
             const newOrderResult = await OrderModel.createOrders([orderPayload]);
-            if (!newOrderResult || newOrderResult.length === 0) {
-                throw new Error("Failed to insert the main order.");
-            }
-            const newOrder = newOrderResult[0];
-            const orderId = newOrder.id;
+            if (!newOrderResult || newOrderResult.length === 0) throw new Error("Gagal menyimpan order.");
 
-            const orderItemsPayload = items.map(item => ({
+            const orderId = newOrderResult[0].id;
+
+            // 8. Siapkan & Insert Order Items (Detail Pesanan)
+            const orderItemsPayload = processedItems.map(item => ({
                 order_id: orderId,
                 menu_id: item.menu_id,
                 quantity: item.quantity,
-                price: item.price,
-                notes: item.notes || null,
-                options: item.options || null
+                price: item.price_at_order,
+                notes: item.notes,
+                options: item.options
             }));
 
             await OrderModel.createOrderItems(orderItemsPayload);
 
-            return ResponseHandler.success(res, 201, 'Order created successfully', {
-                order_id: orderId
+            return ResponseHandler.success(res, 201, 'Pesanan berhasil dibuat', {
+                order_id: orderId,
+                final_amount: finalAmountFromServer
             });
         } catch (error) {
             console.error('Error creating order:', error);
+
+            // Jika error datang dari lemparan manual (seperti di VoucherHelper)
+            if (error instanceof Error && error.message.includes('Minimal pembelian')) {
+                return ResponseHandler.error(res, 400, error.message);
+            }
             return ResponseHandler.error(res, 500, 'Internal Server Error');
         }
     },
+
 
     fetchAvailablePayment: async (req, res) => {
         try {
@@ -237,7 +288,7 @@ export const OrderController = {
                 const points = polyline.decode(order.polyline_data);
                 const totalSteps = points.length;
                 await startDriverSimulation(orderId, totalSteps);
-            }else{
+            } else {
                 return ResponseHandler.error(res, 404, `Order dengan ID ${orderId} tidak ditemukan di database.`);
             }
 
@@ -408,7 +459,7 @@ export const OrderController = {
             const userId = req.userId;
             const orderId = req.params.orderId;
             const { stripe_pm_id } = req.body;
-            
+
             const order = await OrderModel.getOrderById(orderId);
             const user = await UserModel.getUserProfile(userId);
             const card = await UserModel.getUserCardByStripeId(stripe_pm_id);
@@ -477,9 +528,9 @@ export const OrderController = {
                 return ResponseHandler.error(res, 404, 'Order tidak ditemukan');
             }
             return ResponseHandler.success(res, 200, 'Berhasil mendapatkan rute', {
-                distance: order.distance,           
-                duration: order.duration,            
-                polylinePoints: order.polyline_data, 
+                distance: order.distance,
+                duration: order.duration,
+                polylinePoints: order.polyline_data,
                 status: order.status
             });
         } catch (error) {

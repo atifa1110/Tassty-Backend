@@ -4,6 +4,7 @@ import { RestaurantModel } from '../models/restaurantModel.js'
 import ResponseHandler from '../utils/responseHandler.js'
 import stripe from '../config/stripeService.js'
 import { getPaymentMethodDetail } from '../config/stripeService.js'
+import { deletePaymentMethod } from '../config/stripeService.js'
 
 export const UserController = {
     updateUserProfile: async (req, res) => {
@@ -164,6 +165,18 @@ export const UserController = {
             return ResponseHandler.error(res, 500, "Internal Server Error");
         }
     },
+
+    deleteUserAddress: async (req, res) => {
+        try {
+            const addressId = req.addressId;
+            let data = await UserModel.deleteUserAddress(addressId);
+
+            return ResponseHandler.success(res, 200, "Delete Address Successfully", data);
+        } catch (err) {
+            console.error(err);
+            return ResponseHandler.error(res, 500, "Internal Server Error");
+        }
+    },
     createStripeSetupIntent: async (req, res) => {
         try {
             const userId = req.userId;
@@ -241,7 +254,7 @@ export const UserController = {
     getUserCard: async (req, res) => {
         try {
             const userId = req.userId;
-            const data = await UserModel.getUserCard(userId);
+            const data = await UserModel.getUserCardByUserId(userId);
 
             return ResponseHandler.success(res, 200, "Get User Card Successfully", data);
         } catch (err) {
@@ -250,4 +263,29 @@ export const UserController = {
         }
     },
 
+    deleteUserCard: async (req, res) => {
+        try {
+            const cardId = req.params.cardId;
+            const cardData = await UserModel.getUserCardById(cardId);
+
+            console.log(cardData)
+            if (!cardData || !cardData.stripe_pm_id) {
+                return ResponseHandler.error(res, 404, "Card data not found in our system");
+            }
+
+            try {
+                await deletePaymentMethod(cardData.stripe_pm_id);
+            } catch (stripeErr) {
+                console.error("Stripe Detach Error:", stripeErr.message);
+                return ResponseHandler.error(res, 404, "Payment method not found on Stripe server");
+            }
+
+            await UserModel.deleteUserCardById(cardId);
+
+            return ResponseHandler.success(res, 200, "Delete User Card Successfully");
+        } catch (err) {
+            console.error("Save Card Error:", err);
+            return ResponseHandler.error(res, 500, "Fetch Card Error");
+        }
+    }
 }

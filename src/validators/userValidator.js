@@ -28,6 +28,24 @@ export const saveCardSchema = Joi.object({
     .default('pattern_1')
 });
 
+export const deleteCardSchema = Joi.object({
+  cardId: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Card ID is required dari Stripe.',
+      'string.empty': 'Card ID tidak boleh kosong.'
+    }),
+});
+
+export const deleteAddressSchema = Joi.object({
+  addressId: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'Address ID is required dari Stripe.',
+      'string.empty': 'Address ID tidak boleh kosong.'
+    }),
+
+});
 
 export const addressSchema = Joi.object({
   addressType: Joi.string()
